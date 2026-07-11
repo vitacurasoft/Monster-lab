@@ -7,6 +7,7 @@
 
   const $ = (sel) => document.querySelector(sel);
   const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
+  const glyphOf = (id) => { const d = CREATURES[id]; return (d && d.glyph) || (d && FAMILIES[d.family] && FAMILIES[d.family].glyph) || '?'; };
 
   const state = {
     deckId: 'equilibre',
@@ -118,14 +119,14 @@
       c.style.setProperty('--fam', fam.color);
       c.innerHTML = `
         <div class="card-cost">${def.cost}</div>
-        <div class="card-glyph">${fam.glyph}</div>
+        <div class="card-glyph">${glyphOf(id)}</div>
         <div class="card-name">${def.name}</div>`;
       c.dataset.index = i;
       wrap.appendChild(c);
     });
     // aperçu de la prochaine capsule
     const next = state.queue[0] || state.deck[0];
-    $('#next-card').textContent = next ? FAMILIES[CREATURES[next].family].glyph : '';
+    $('#next-card').textContent = next ? glyphOf(next) : '';
   }
 
   function deploySelected(fieldPos) {
@@ -215,7 +216,7 @@
     const id = state.hand[state.selectedCard];
     if (!id) return;
     const fam = FAMILIES[CREATURES[id].family];
-    g.textContent = fam.glyph;
+    g.textContent = glyphOf(id);
     g.style.display = 'flex';
     g.style.left = x + 'px';
     g.style.top = y + 'px';

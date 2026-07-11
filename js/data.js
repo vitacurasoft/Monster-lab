@@ -178,6 +178,62 @@ const CREATURES = {
     heal: 20,
     desc: "Soigne régulièrement les alliés autour d'elle.",
   },
+
+  // --- Mammifères : chaîne de mutation ------------------------------------
+  molosse: {
+    id: 'molosse', name: 'Molosse', family: 'mammifere', role: 'predateur',
+    cost: 3, hp: 300, dmg: 34, range: 22, speed: 80, atkSpd: 1.1, radius: 16,
+    mutateTo: 'molosseAlpha', dnaToMutate: 85,
+    desc: "Chien de combat. Mute en Molosse alpha.",
+  },
+  molosseAlpha: {
+    id: 'molosseAlpha', name: 'Molosse alpha', family: 'mammifere', role: 'predateur',
+    cost: 3, hp: 520, dmg: 56, range: 24, speed: 84, atkSpd: 1.2, radius: 19,
+    desc: "Prédateur dominant de la meute.",
+  },
+
+  // --- Robots : soutien réparateur ----------------------------------------
+  nanobot: {
+    id: 'nanobot', name: 'Essaim nanobot', family: 'robot', role: 'soutien',
+    cost: 3, hp: 170, dmg: 0, range: 82, speed: 66, atkSpd: 1.4, radius: 12,
+    heal: 15,
+    desc: "Répare les alliés proches en continu.",
+  },
+
+  // ========================================================================
+  // BÂTIMENTS DÉPLOYABLES (cf. cahier des charges §9)
+  // Ce sont des structures immobiles posées sur le terrain.
+  // ========================================================================
+  tourelle: {
+    id: 'tourelle', name: 'Tourelle', family: 'robot', role: 'distance', glyph: '🗼',
+    cost: 4, hp: 430, dmg: 38, range: 135, speed: 0, atkSpd: 1.1, radius: 16,
+    structure: true, struct: 'tourelle',
+    desc: "Bâtiment défensif qui tire à distance sur les ennemis.",
+  },
+  incubateur: {
+    id: 'incubateur', name: 'Incubateur', family: 'insecte', role: 'soutien', glyph: '🥚',
+    cost: 4, hp: 520, dmg: 0, range: 0, speed: 0, atkSpd: 1, radius: 16,
+    structure: true, struct: 'incubateur', spawn: 'larve', spawnEvery: 4.5,
+    desc: "Produit une larve à intervalle régulier.",
+  },
+  generateur: {
+    id: 'generateur', name: 'Générateur', family: 'robot', role: 'soutien', glyph: '⚡',
+    cost: 3, hp: 340, dmg: 0, range: 0, speed: 0, atkSpd: 1, radius: 15,
+    structure: true, struct: 'generateur', life: 24,
+    desc: "Accélère votre régénération d'énergie tant qu'il tient (temporaire).",
+  },
+  piege: {
+    id: 'piege', name: 'Piège biologique', family: 'plante', role: 'soutien', glyph: '💥',
+    cost: 2, hp: 200, dmg: 280, range: 72, speed: 0, atkSpd: 1, radius: 13,
+    structure: true, struct: 'piege',
+    desc: "Explose en dégâts de zone au passage d'un ennemi.",
+  },
+  laboAvance: {
+    id: 'laboAvance', name: 'Labo avancé', family: 'alien', role: 'soutien', glyph: '🔬',
+    cost: 5, hp: 640, dmg: 0, range: 96, speed: 0, atkSpd: 1, radius: 17,
+    structure: true, struct: 'labo', heal: 18,
+    desc: "Soigne les alliés autour et recharge votre capacité de labo.",
+  },
 };
 
 // Decks pré-construits (8 capsules). Le joueur utilise le premier ;
@@ -194,6 +250,14 @@ const DECKS = {
   lourds: {
     name: 'Titans Lourds',
     cards: ['bufloTank', 'kraken', 'sentinelle', 'liane', 'ovniSoutien', 'scorpion', 'drone', 'varan'],
+  },
+  forteresse: {
+    name: 'Forteresse',
+    cards: ['tourelle', 'incubateur', 'generateur', 'varan', 'drone', 'scorpion', 'fleurSoin', 'piege'],
+  },
+  meute: {
+    name: 'Meute Sauvage',
+    cards: ['molosse', 'loupMeute', 'bufloTank', 'xeno', 'nanobot', 'sangsue', 'raieVolante', 'laboAvance'],
   },
 };
 

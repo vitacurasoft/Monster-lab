@@ -86,6 +86,7 @@ class Render3D {
       ring: new THREE.TorusGeometry(1, 0.14, 8, 24),
       proj: new THREE.SphereGeometry(3.2, 8, 8),
       ringFx: new THREE.TorusGeometry(1, 0.5, 6, 28),
+      struct: new THREE.BoxGeometry(1, 1, 1),
     };
 
     this._plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
@@ -186,10 +187,12 @@ class Render3D {
     const fam = FAMILIES[u.family] || { color: '#ffffff' };
     const col = new THREE.Color(fam.color);
     const teamColor = u.team === 'player' ? 0x4cc9f0 : 0xf04c7a;
+    const isStruct = !!u.def.structure;
     const group = new THREE.Group();
     const body = new THREE.Mesh(
-      this.geo.unit,
-      new THREE.MeshStandardMaterial({ color: col, emissive: col.clone().multiplyScalar(0.3), roughness: 0.45, metalness: 0.2 })
+      isStruct ? this.geo.struct : this.geo.unit,
+      new THREE.MeshStandardMaterial({ color: col, emissive: col.clone().multiplyScalar(0.3),
+        roughness: isStruct ? 0.5 : 0.45, metalness: isStruct ? 0.5 : 0.2, flatShading: isStruct })
     );
     group.add(body);
     const ring = new THREE.Mesh(
@@ -199,7 +202,7 @@ class Render3D {
     ring.rotation.x = -Math.PI / 2;
     group.add(ring);
     this.world.add(group);
-    m = { group, body, ring, fam };
+    m = { group, body, ring, fam, isStruct };
     this.unitMeshes.set(u.id, m);
     return m;
   }
@@ -212,11 +215,20 @@ class Render3D {
       const m = this.ensureUnit(u);
       const w = toWorld(u.x, u.y);
       const r = u.radius * 0.95;
-      const bob = Math.sin(this.time * 6 + u.id) * 1.2;
-      m.group.position.set(w.x, r + bob, w.z);
-      m.body.scale.setScalar(r);
-      m.ring.position.y = -r + 1.5;
-      m.ring.scale.set(r * 1.25, r * 1.25, r * 1.25);
+      if (m.isStruct) {
+        m.group.position.set(w.x, 0, w.z);
+        m.body.scale.set(r * 1.7, r * 2.4, r * 1.7);
+        m.body.position.y = r * 1.2;
+        m.ring.position.y = 1.5;
+        m.ring.scale.setScalar(r * 1.5);
+      } else {
+        const bob = Math.sin(this.time * 6 + u.id) * 1.2;
+        m.group.position.set(w.x, r + bob, w.z);
+        m.body.scale.setScalar(r);
+        m.body.position.y = 0;
+        m.ring.position.y = -r + 1.5;
+        m.ring.scale.set(r * 1.25, r * 1.25, r * 1.25);
+      }
 
       // couleur / états
       const mat = m.body.material;
@@ -335,14 +347,15 @@ class Render3D {
     const units = game.units.filter(u => u.alive);
     for (const u of units) {
       const fam = FAMILIES[u.family] || { glyph: '?', color: '#fff' };
-      const top = this.project(u.x, u.y, u.radius * 2.1);
-      const mid = this.project(u.x, u.y, u.radius);
+      const glyph = u.def.glyph || fam.glyph;
+      const gh = u.def.structure ? u.radius * 2.6 : u.radius;
+      const top = this.project(u.x, u.y, u.def.structure ? u.radius * 4 : u.radius * 2.1);
+      const mid = this.project(u.x, u.y, gh);
       if (!mid.visible) continue;
       // glyphe
-      const size = Math.max(11, 20 - u.radius * 0.1);
       ctx.font = `${Math.round(u.radius * 0.95)}px serif`;
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText(fam.glyph, mid.x, mid.y);
+      ctx.fillText(glyph, mid.x, mid.y);
       // barre de vie
       this.hpBar(ctx, top.x, top.y - 6, Math.max(20, u.radius * 1.6), u.hp / u.maxHp, u.team === 'player' ? '#4cc9f0' : '#f04c7a');
       // anneau ADN

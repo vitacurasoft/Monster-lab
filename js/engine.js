@@ -80,6 +80,12 @@ class Unit {
     this.mutateFlash = 0;
     this.hitFlash = 0;
     this.spawnAnim = 0.35;
+    // structures déployables
+    this.structure = !!def.structure;
+    this.struct = def.struct || null;
+    this.spawnT = def.spawnEvery || 0;
+    this.life = def.life || 0;   // 0 = permanent
+    this.armed = 0.5;            // délai d'armement (piège)
   }
 
   get dmgMult()      { return this.buffT > 0 ? 1.4 : 1; }
@@ -343,7 +349,11 @@ class Game {
     if (this.phase === 'overtime') regen = GAME_CONFIG.energyRegenOvertime;
     else if (this.time <= 60) regen = GAME_CONFIG.energyRegenLastMin;
     for (const t of ['player', 'enemy']) {
-      this.energy[t] = Math.min(GAME_CONFIG.maxEnergy, this.energy[t] + regen * dt);
+      let bonus = 0;
+      for (const u of this.units) {
+        if (u.alive && u.team === t && u.struct === 'generateur') bonus += 0.35;
+      }
+      this.energy[t] = Math.min(GAME_CONFIG.maxEnergy, this.energy[t] + (regen + bonus) * dt);
     }
 
     // Recharge lente des capacités de labo
@@ -380,6 +390,9 @@ class Game {
       if (u.slowT > 0) u.slowT -= dt;
       if (u.stunT > 0) { u.stunT -= dt; continue; }
       if (u.cd > 0) u.cd -= dt;
+
+      // Structures déployables (immobiles, comportements dédiés)
+      if (u.structure) { this.updateStructure(u, dt); continue; }
 
       // ADN de survie
       if (u.def.mutateTo) this.gainDna(u, 3 * dt);
@@ -422,6 +435,65 @@ class Game {
     }
 
     this.separateUnits();
+  }
+
+  // -- Structures déployables ------------------------------------------------
+  updateStructure(u, dt) {
+    if (u.life) { u.life -= dt; if (u.life <= 0) { u.alive = false; return; } }
+    const foe = this.enemyOf(u.team);
+
+    if (u.struct === 'tourelle') {
+      let best = null, bd = Infinity;
+      for (const e of this.units) {
+        if (!e.alive || e.team !== foe || e.structure) continue;
+        const d = dist(u, e); if (d <= u.range && d < bd) { bd = d; best = e; }
+      }
+      if (!best) for (const b of this.buildings) {
+        if (!b.alive || b.team !== foe) continue;
+        const d = dist(u, b); if (d <= u.range && d < bd) { bd = d; best = b; }
+      }
+      if (best && u.cd <= 0) {
+        this.projectiles.push({ x: u.x, y: u.y, target: best, team: u.team, speed: 280, dmg: u.dmg, attacker: u, color: '#8ab4ff' });
+        u.cd = 1 / u.atkSpd;
+      }
+    } else if (u.struct === 'incubateur') {
+      u.spawnT -= dt;
+      if (u.spawnT <= 0) {
+        u.spawnT = u.def.spawnEvery;
+        const d = CREATURES[u.def.spawn];
+        if (d) this.units.push(new Unit(u.team, d, { x: u.x, y: u.y + (u.team === 'player' ? -20 : 20) }));
+      }
+    } else if (u.struct === 'piege') {
+      u.armed -= dt;
+      if (u.armed <= 0) {
+        let triggered = false;
+        for (const e of this.units) {
+          if (!e.alive || e.team !== foe || e.structure) continue;
+          if (dist(u, e) <= u.range) { triggered = true; break; }
+        }
+        if (triggered) {
+          for (const e of this.units) {
+            if (!e.alive || e.team !== foe || e.structure) continue;
+            if (dist(u, e) <= u.range) this.damageUnit(e, u.dmg, u);
+          }
+          this.effects.push({ kind: 'ability', ability: { icon: '💥' }, x: u.x, y: u.y, t: 0.6, radius: u.range });
+          u.alive = false;
+        }
+      }
+    } else if (u.struct === 'labo') {
+      if (u.cd <= 0) {
+        let healed = false;
+        for (const a of this.units) {
+          if (!a.alive || a.team !== u.team || a.id === u.id || a.structure) continue;
+          if (dist(u, a) <= u.range && a.hp < a.maxHp) {
+            a.hp = Math.min(a.maxHp, a.hp + (u.def.heal || 16)); healed = true;
+          }
+        }
+        if (healed) this.lab[u.team].charge = Math.min(100, this.lab[u.team].charge + 4);
+        u.cd = 1 / u.atkSpd;
+      }
+    }
+    // 'generateur' : effet passif géré dans la boucle d'énergie
   }
 
   attack(u, tgt) {
