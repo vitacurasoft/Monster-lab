@@ -89,7 +89,9 @@
     state.targetingAbility = false;
     state.stats = { deployed: 0, mutations: 0, instab: 0 };
 
-    if (!state.renderer) state.renderer = new Renderer($('#game-canvas'));
+    if (!state.renderer) state.renderer = new Render3D($('#game-canvas'), $('#game-overlay'));
+    else state.renderer.dispose();
+    state.renderer.setArena(pick(ARENA_IDS));
     state.renderer.resize();
 
     renderHand();
