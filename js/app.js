@@ -8,6 +8,14 @@
   const $ = (sel) => document.querySelector(sel);
   const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
   const glyphOf = (id) => { const d = CREATURES[id]; return (d && d.glyph) || (d && FAMILIES[d.family] && FAMILIES[d.family].glyph) || '?'; };
+  const sfx = (name) => { if (window.Sound && Meta.state.settings.sound) window.Sound.play(name); };
+  let _toastT;
+  function toast(msg) {
+    let t = $('#toast');
+    if (!t) { t = el('div'); t.id = 'toast'; document.getElementById('app').appendChild(t); }
+    t.textContent = msg; t.classList.add('show');
+    clearTimeout(_toastT); _toastT = setTimeout(() => t.classList.remove('show'), 1600);
+  }
 
   const state = {
     deckId: 'equilibre',
@@ -32,38 +40,259 @@
     $('#' + id).classList.add('active');
   }
 
-  // ---- Menu ---------------------------------------------------------------
-  function buildMenu() {
-    const deckWrap = $('#deck-choices');
-    deckWrap.innerHTML = '';
-    Object.entries(DECKS).forEach(([id, d]) => {
-      const card = el('button', 'choice' + (id === state.deckId ? ' sel' : ''));
-      card.innerHTML = `<div class="choice-title">${d.name}</div>
-        <div class="choice-cards">${d.cards.map(c => (FAMILIES[CREATURES[c].family].glyph)).join(' ')}</div>`;
-      card.onclick = () => { state.deckId = id; buildMenu(); };
-      deckWrap.appendChild(card);
-    });
+  // ---- HUB / Laboratoire --------------------------------------------------
+  const NAV = [
+    { id: 'collection', icon: '🧬', label: 'Collection', build: buildCollection },
+    { id: 'deck',       icon: '🃏', label: 'Deck',       build: buildDeck },
+    { id: 'shop',       icon: '🛒', label: 'Boutique',   build: buildShop },
+    { id: 'lab',        icon: '⚗️', label: 'Labo',        build: buildLab },
+    { id: 'ladder',     icon: '🏆', label: 'Classement', build: buildLadder },
+    { id: 'premium',    icon: '👑', label: 'Premium',    build: buildPremium },
+  ];
 
-    const abWrap = $('#ability-choices');
-    abWrap.innerHTML = '';
-    Object.entries(LAB_ABILITIES).forEach(([id, a]) => {
-      const b = el('button', 'choice small' + (id === state.abilityId ? ' sel' : ''));
-      b.innerHTML = `<div class="ab-icon">${a.icon}</div><div class="ab-name">${a.name}</div>`;
-      b.title = a.desc;
-      b.onclick = () => { state.abilityId = id; buildMenu(); };
-      abWrap.appendChild(b);
+  function buildHub() {
+    const s = Meta.state;
+    const lvl = Meta.level(), lg = Meta.league();
+    $('#hub-avatar').textContent = s.avatar;
+    $('#hub-name').textContent = s.name;
+    $('#hub-lvl').textContent = 'Niv. ' + lvl.lvl;
+    $('#hub-xp').style.width = (lvl.into / lvl.need * 100) + '%';
+    $('#hub-league-icon').textContent = lg.cur.icon;
+    $('#hub-league').textContent = lg.cur.name;
+    $('#hub-trophies').textContent = s.trophies;
+    $('#hub-science').textContent = s.science;
+    $('#hub-coins').textContent = s.coins;
+
+    const nav = $('#hub-nav');
+    nav.innerHTML = '';
+    NAV.forEach(n => {
+      const b = el('button', 'nav-btn');
+      b.innerHTML = `<span class="nav-ico">${n.icon}</span><span class="nav-lbl">${n.label}</span>`;
+      b.onclick = () => { show('screen-' + n.id); n.build(); };
+      nav.appendChild(b);
     });
+  }
+
+  // ---- Collection ---------------------------------------------------------
+  function buildCollection() {
+    $('#col-science').textContent = Meta.state.science;
+    const body = $('#collection-body');
+    body.innerHTML = '';
+    const grid = el('div', 'card-grid');
+    Object.keys(CREATURES).forEach(id => {
+      const def = CREATURES[id];
+      const unlocked = Meta.isUnlocked(id);
+      const fam = FAMILIES[def.family];
+      const c = el('div', 'coll-card' + (unlocked ? '' : ' locked'));
+      c.style.setProperty('--fam', fam.color);
+      const cost = Meta.unlockCost(id);
+      c.innerHTML = `
+        <div class="coll-glyph">${glyphOf(id)}</div>
+        <div class="coll-name">${def.name}</div>
+        <div class="coll-fam">${fam.glyph} ${fam.name}</div>
+        <div class="coll-stats">⚡${def.cost} ❤️${def.hp} ${def.dmg ? '⚔️' + def.dmg : '✚soutien'}</div>
+        ${unlocked ? '<div class="coll-owned">Débloqué</div>'
+                   : `<button class="coll-unlock" ${Meta.state.science < cost ? 'disabled' : ''}>🧪 ${cost}</button>`}`;
+      if (!unlocked) {
+        const btn = c.querySelector('.coll-unlock');
+        btn.onclick = () => {
+          if (Meta.unlock(id)) { sfx('unlock'); buildCollection(); buildHub(); }
+        };
+      }
+      grid.appendChild(c);
+    });
+    body.appendChild(grid);
+  }
+
+  // ---- Éditeur de deck ----------------------------------------------------
+  let deckDraft = null;
+  function buildDeck() {
+    deckDraft = Meta.state.deck.slice();
+    renderDeckScreen();
+  }
+  function renderDeckScreen() {
+    const body = $('#deck-body');
+    body.innerHTML = '';
+
+    // deck actuel
+    body.appendChild(el('div', 'section-label', 'Votre deck (8 capsules)'));
+    const deckRow = el('div', 'deck-row');
+    deckDraft.forEach((id, i) => {
+      const d = el('div', 'mini-card');
+      d.style.setProperty('--fam', FAMILIES[CREATURES[id].family].color);
+      d.innerHTML = `<div class="mini-cost">${CREATURES[id].cost}</div><div class="mini-glyph">${glyphOf(id)}</div>`;
+      d.title = 'Retirer ' + CREATURES[id].name;
+      d.onclick = () => { deckDraft.splice(i, 1); renderDeckScreen(); };
+      deckRow.appendChild(d);
+    });
+    for (let i = deckDraft.length; i < 8; i++) deckRow.appendChild(el('div', 'mini-card empty', '+'));
+    body.appendChild(deckRow);
+
+    // capacité de labo
+    body.appendChild(el('div', 'section-label', 'Capacité de laboratoire'));
+    const abRow = el('div', 'ab-row');
+    Object.entries(LAB_ABILITIES).forEach(([id, a]) => {
+      const b = el('button', 'ab-choice' + (id === Meta.state.ability ? ' sel' : ''));
+      b.innerHTML = `<div class="ab-ico">${a.icon}</div><div class="ab-nm">${a.name}</div>`;
+      b.title = a.desc;
+      b.onclick = () => { Meta.setAbility(id); renderDeckScreen(); };
+      abRow.appendChild(b);
+    });
+    body.appendChild(abRow);
+
+    // save
+    const saveBtn = el('button', 'big-btn small', deckDraft.length === 8 ? 'Enregistrer le deck' : `Choisissez ${8 - deckDraft.length} capsule(s)`);
+    if (deckDraft.length !== 8) saveBtn.disabled = true;
+    saveBtn.onclick = () => { if (Meta.setDeck(deckDraft)) { sfx('unlock'); toast('Deck enregistré'); } };
+    body.appendChild(saveBtn);
+
+    // capsules disponibles (débloquées, pas déjà dans le deck)
+    body.appendChild(el('div', 'section-label', 'Capsules débloquées'));
+    const grid = el('div', 'card-grid');
+    Meta.state.unlocked.filter(id => !deckDraft.includes(id)).forEach(id => {
+      const def = CREATURES[id];
+      const c = el('div', 'coll-card mini');
+      c.style.setProperty('--fam', FAMILIES[def.family].color);
+      c.innerHTML = `<div class="coll-glyph">${glyphOf(id)}</div><div class="coll-name">${def.name}</div>
+        <div class="coll-stats">⚡${def.cost}</div>`;
+      c.onclick = () => { if (deckDraft.length < 8) { deckDraft.push(id); renderDeckScreen(); } };
+      grid.appendChild(c);
+    });
+    body.appendChild(grid);
+  }
+
+  // ---- Boutique -----------------------------------------------------------
+  function buildShop() {
+    $('#shop-coins').textContent = Meta.state.coins;
+    const body = $('#shop-body');
+    body.innerHTML = '';
+    body.appendChild(el('p', 'shop-note', 'Uniquement cosmétique — aucun avantage en combat.'));
+    const cats = [['Arènes', SHOP.arenes], ['Avatars', SHOP.avatars], ['Émotes', SHOP.emotes]];
+    cats.forEach(([label, items]) => {
+      body.appendChild(el('div', 'section-label', label));
+      const grid = el('div', 'shop-grid');
+      items.forEach(it => {
+        const owned = Meta.owns(it.id);
+        const c = el('div', 'shop-card' + (owned ? ' owned' : ''));
+        c.innerHTML = `<div class="shop-ico">${it.icon}</div><div class="shop-name">${it.name}</div>
+          ${owned ? '<div class="shop-owned">Possédé</div>'
+                  : `<button class="shop-buy" ${Meta.state.coins < it.cost ? 'disabled' : ''}>💠 ${it.cost}</button>`}`;
+        if (!owned) c.querySelector('.shop-buy').onclick = () => {
+          if (Meta.buy(it)) { sfx('unlock'); if (it.id.startsWith('av_')) Meta.state.avatar = it.icon, Meta.save();
+            buildShop(); buildHub(); }
+        };
+        else if (it.icon && it.id.startsWith('av_')) { c.style.cursor = 'pointer'; c.onclick = () => { Meta.state.avatar = it.icon; Meta.save(); buildHub(); toast('Avatar équipé'); }; }
+        grid.appendChild(c);
+      });
+      body.appendChild(grid);
+    });
+  }
+
+  // ---- Laboratoire (salles) ----------------------------------------------
+  function buildLab() {
+    $('#lab-coins').textContent = Meta.state.coins;
+    const body = $('#lab-body');
+    body.innerHTML = '';
+    body.appendChild(el('p', 'shop-note', 'Améliorez votre laboratoire pour de meilleurs gains.'));
+    LAB_ROOMS.forEach(room => {
+      const lvl = Meta.state.rooms[room.id] || 1;
+      const cost = Meta.roomCost(room);
+      const c = el('div', 'room-card');
+      c.innerHTML = `<div class="room-ico">${room.icon}</div>
+        <div class="room-info"><div class="room-name">${room.name} <span class="room-lvl">Niv. ${lvl}</span></div>
+          <div class="room-desc">${room.desc}</div></div>
+        <button class="room-up" ${Meta.state.coins < cost ? 'disabled' : ''}>💠 ${cost}</button>`;
+      c.querySelector('.room-up').onclick = () => { if (Meta.upgradeRoom(room)) { sfx('unlock'); buildLab(); buildHub(); } };
+      body.appendChild(c);
+    });
+  }
+
+  // ---- Classement ---------------------------------------------------------
+  function buildLadder() {
+    const body = $('#ladder-body');
+    body.innerHTML = '';
+    const lg = Meta.league();
+    // paliers de ligue
+    const lgWrap = el('div', 'league-track');
+    LEAGUES.forEach(L => {
+      const active = Meta.state.trophies >= L.min;
+      const d = el('div', 'league-pip' + (active ? ' on' : '') + (L.name === lg.cur.name ? ' cur' : ''));
+      d.innerHTML = `<span>${L.icon}</span><small>${L.name}</small><small class="lg-min">${L.min}🏆</small>`;
+      lgWrap.appendChild(d);
+    });
+    body.appendChild(lgWrap);
+
+    body.appendChild(el('div', 'section-label', 'Classement mondial'));
+    const list = el('div', 'ladder-list');
+    Meta.leaderboard().slice(0, 14).forEach((row, i) => {
+      const r = el('div', 'ladder-row' + (row.you ? ' you' : ''));
+      r.innerHTML = `<span class="lad-rank">${i + 1}</span><span class="lad-name">${row.name}</span><span class="lad-tr">🏆 ${row.trophies}</span>`;
+      list.appendChild(r);
+    });
+    body.appendChild(list);
+
+    // stats perso
+    const st = Meta.state.stats;
+    body.appendChild(el('div', 'section-label', 'Vos statistiques'));
+    const stats = el('div', 'stats-box');
+    const wr = st.games ? Math.round(st.wins / st.games * 100) : 0;
+    [['Parties', st.games], ['Victoires', st.wins], ['Ratio', wr + '%'], ['Record 🏆', st.bestTrophies]]
+      .forEach(([k, v]) => { const r = el('div', 'stat-row'); r.innerHTML = `<span>${k}</span><b>${v}</b>`; stats.appendChild(r); });
+    body.appendChild(stats);
+  }
+
+  // ---- Premium / Pass de saison ------------------------------------------
+  function buildPremium() {
+    const body = $('#premium-body');
+    body.innerHTML = '';
+    const s = Meta.state;
+    const card = el('div', 'premium-card');
+    card.innerHTML = `<div class="prem-head">👑 Premium — 5,99 €/mois</div>
+      <ul class="prem-list">
+        <li>Pass de saison inclus</li><li>+50% XP · +40% cristaux</li>
+        <li>Récompenses quotidiennes</li><li>Personnalisation exclusive</li>
+        <li>Statistiques avancées</li></ul>
+      <button class="big-btn small" id="prem-toggle">${s.premium ? '✓ Premium actif (simulé)' : 'Activer Premium (simulé)'}</button>`;
+    body.appendChild(card);
+    card.querySelector('#prem-toggle').onclick = () => { s.premium = !s.premium; Meta.save(); sfx('unlock'); buildPremium(); buildHub(); };
+
+    body.appendChild(el('div', 'section-label', 'Pass de saison — XP : ' + s.season.xp));
+    const track = el('div', 'season-track');
+    Meta.seasonTiers().forEach(t => {
+      const reached = s.season.xp >= t.need;
+      const claimed = s.season.claimed.includes(t.tier);
+      const d = el('div', 'season-tier' + (reached ? ' reached' : '') + (claimed ? ' claimed' : ''));
+      d.innerHTML = `<div class="st-tier">${t.tier}</div><div class="st-reward">${t.reward.icon} ${t.reward.amount}</div>
+        <div class="st-need">${t.need}</div>`;
+      if (reached && !claimed) {
+        const b = el('button', 'st-claim', 'Récupérer');
+        b.onclick = () => { if (Meta.claimTier(t.tier)) { sfx('reward'); buildPremium(); buildHub(); } };
+        d.appendChild(b);
+      }
+      track.appendChild(d);
+    });
+    body.appendChild(track);
+  }
+
+  // ---- Réglages -----------------------------------------------------------
+  function openSettings() {
+    const m = $('#settings-modal');
+    $('#set-sound').checked = Meta.state.settings.sound;
+    $('#set-name').value = Meta.state.name;
+    m.classList.add('open');
   }
 
   // ---- Chargement (écran VS 5s, cf. cahier des charges) -------------------
   function startLoading() {
-    const deck = DECKS[state.deckId];
+    const deck = Meta.state.deck;
     const enemyDeckId = pick(Object.keys(DECKS));
+    const lg = Meta.league();
     show('screen-loading');
-    $('#load-player-deck').textContent = deck.name;
+    $('#load-player-deck').textContent = Meta.state.name;
     $('#load-enemy-deck').textContent = DECKS[enemyDeckId].name;
-    $('#load-player-fav').textContent = FAMILIES[CREATURES[deck.cards[0]].family].glyph;
+    $('#load-player-fav').textContent = Meta.state.avatar;
     $('#load-enemy-fav').textContent = FAMILIES[CREATURES[DECKS[enemyDeckId].cards[0]].family].glyph;
+    document.querySelectorAll('.vs-league').forEach((n, i) => { n.textContent = lg.cur.icon + ' ' + lg.cur.name; });
     let t = 5;
     $('#load-count').textContent = t;
     const iv = setInterval(() => {
@@ -75,14 +304,14 @@
 
   // ---- Combat -------------------------------------------------------------
   function startMatch(enemyDeckId) {
-    const playerAbility = LAB_ABILITIES[state.abilityId];
+    const playerAbility = LAB_ABILITIES[Meta.state.ability] || LAB_ABILITIES.nuageToxique;
     const enemyAbility = LAB_ABILITIES[pick(Object.keys(LAB_ABILITIES))];
     const game = new Game({ playerAbility, enemyAbility });
     state.game = game;
     state.bot = new BotPlayer(game, DECKS[enemyDeckId].cards, 0.7);
 
-    // main du joueur
-    state.deck = DECKS[state.deckId].cards.slice();
+    // main du joueur (deck méta)
+    state.deck = Meta.state.deck.slice();
     state.queue = shuffle(state.deck.slice());
     state.hand = [];
     for (let i = 0; i < GAME_CONFIG.handSize; i++) state.hand.push(state.queue.shift());
@@ -92,7 +321,9 @@
 
     if (!state.renderer) state.renderer = new Render3D($('#game-canvas'), $('#game-overlay'));
     else state.renderer.dispose();
-    state.renderer.setArena(pick(ARENA_IDS));
+    // arènes : labo + celles achetées en boutique
+    const owned = ['labo'].concat(SHOP.arenes.filter(a => Meta.owns(a.id)).map(a => a.arena));
+    state.renderer.setArena(pick(owned));
     state.renderer.resize();
 
     renderHand();
@@ -305,6 +536,7 @@
     const g = state.game;
     const win = g.winner === 'player';
     const draw = g.winner === 'draw';
+    sfx(win ? 'win' : draw ? 'deploy' : 'lose');
     show('screen-results');
     const title = $('#result-title');
     title.textContent = draw ? 'ÉGALITÉ' : win ? 'VICTOIRE' : 'DÉFAITE';
@@ -313,14 +545,14 @@
       ? 'Les deux Cœurs Génétiques ont tenu bon.'
       : win ? 'Cœur Génétique adverse neutralisé.' : 'Votre laboratoire est tombé.';
 
-    // récompenses (cf. cahier des charges)
-    const trophies = draw ? 5 : win ? 30 : -18;
-    const xp = 40 + state.stats.deployed * 6 + g.reacteursDown.enemy * 15;
-    const science = draw ? 60 : win ? 120 : 45;
+    // récompenses appliquées à la progression persistante
+    const rw = Meta.applyResult({ win, draw, reacteurs: g.reacteursDown.enemy, deployed: state.stats.deployed });
+    const lg = Meta.league();
     const rows = [
-      ['🏆 Trophées', (trophies >= 0 ? '+' : '') + trophies],
-      ['⭐ Expérience', '+' + xp],
-      ['🧪 Ressources scientifiques', '+' + science],
+      ['🏆 Trophées', (rw.trophies >= 0 ? '+' : '') + rw.trophies + '  (' + lg.cur.icon + ' ' + lg.cur.name + ')'],
+      ['⭐ Expérience', '+' + rw.xp],
+      ['🧪 Ressources scientifiques', '+' + rw.science],
+      ['💠 Cristaux', '+' + rw.coins],
       ['📊 Réacteurs détruits', g.reacteursDown.enemy + ' / 2'],
       ['🧬 Créatures déployées', state.stats.deployed],
     ];
@@ -338,14 +570,27 @@
 
   // ---- init ---------------------------------------------------------------
   function init() {
-    buildMenu();
+    Meta.load();
+    buildHub();
     setupInput();
-    $('#fight-btn').addEventListener('click', startLoading);
+    $('#fight-btn').addEventListener('click', () => { if (window.Sound) window.Sound.resume(); sfx('deploy'); startLoading(); });
     $('#replay-btn').addEventListener('click', startLoading);
-    $('#menu-btn').addEventListener('click', () => { buildMenu(); show('screen-menu'); });
+    $('#menu-btn').addEventListener('click', () => { buildHub(); show('screen-hub'); });
     $('#help-btn').addEventListener('click', () => $('#help-modal').classList.add('open'));
     $('#help-close').addEventListener('click', () => $('#help-modal').classList.remove('open'));
-    show('screen-menu');
+    $('#settings-btn').addEventListener('click', openSettings);
+
+    // boutons retour des sous-écrans
+    document.querySelectorAll('[data-back]').forEach(b => b.addEventListener('click', () => { buildHub(); show('screen-hub'); }));
+
+    // réglages
+    const sm = $('#settings-modal');
+    $('#set-sound').addEventListener('change', (e) => { Meta.state.settings.sound = e.target.checked; Meta.save(); });
+    $('#set-name').addEventListener('input', (e) => { Meta.state.name = e.target.value.slice(0, 16) || 'Scientifique'; Meta.save(); buildHub(); });
+    $('#set-reset').addEventListener('click', () => { if (confirm('Réinitialiser toute la progression ?')) { Meta.reset(); buildHub(); sm.classList.remove('open'); } });
+    $('#set-close').addEventListener('click', () => sm.classList.remove('open'));
+
+    show('screen-hub');
   }
 
   document.addEventListener('DOMContentLoaded', init);

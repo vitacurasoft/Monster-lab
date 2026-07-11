@@ -10,29 +10,72 @@
 <body>
 <div id="app">
 
-  <!-- ================= MENU ================= -->
-  <section id="screen-menu" class="screen active">
-    <div class="menu-inner">
-      <header class="brand">
-        <div class="brand-logo">🧬</div>
-        <h1>MONSTER LAB</h1>
-        <p class="tagline">Année 2087 — Bio-ingénierie de combat</p>
+  <!-- ================= HUB / LABORATOIRE ================= -->
+  <section id="screen-hub" class="screen active">
+    <div class="hub">
+      <header class="topbar">
+        <button class="tb-avatar" id="hub-avatar">🧬</button>
+        <div class="tb-id">
+          <div class="tb-name" id="hub-name">Scientifique</div>
+          <div class="tb-lvl"><span id="hub-lvl">Niv. 1</span>
+            <div class="xpbar"><div id="hub-xp"></div></div></div>
+        </div>
+        <button class="tb-settings" id="settings-btn">⚙️</button>
       </header>
 
-      <div class="panel">
-        <h2>Votre laboratoire de combat</h2>
-        <div class="section-label">Deck (8 capsules génétiques)</div>
-        <div id="deck-choices" class="choices"></div>
-
-        <div class="section-label">Capacité de laboratoire</div>
-        <div id="ability-choices" class="choices"></div>
+      <div class="resources">
+        <div class="res" id="res-league"><span id="hub-league-icon">🥉</span> <b id="hub-league">Bronze</b>
+          <span class="sep">·</span> 🏆 <b id="hub-trophies">0</b></div>
+        <div class="res">🧪 <b id="hub-science">0</b> <span class="sep">·</span> 💠 <b id="hub-coins">0</b></div>
       </div>
 
-      <button id="fight-btn" class="big-btn">COMBATTRE</button>
+      <div class="hub-hero">
+        <div class="hero-logo">🧬</div>
+        <div class="hero-title">MONSTER LAB</div>
+        <div class="hero-sub">Année 2087 — Bio-ingénierie de combat</div>
+      </div>
+
+      <button id="fight-btn" class="big-btn combat">⚔️ COMBATTRE</button>
+      <button id="online-btn" class="big-btn online" disabled title="Multijoueur en ligne — à venir (Flutter)">🌐 JOUEUR EN LIGNE — bientôt</button>
+
+      <div class="hub-nav" id="hub-nav"></div>
       <button id="help-btn" class="ghost-btn">Comment jouer ?</button>
-      <p class="footnote">Prototype — mécaniques du cahier des charges Monster Lab v1.0</p>
     </div>
   </section>
+
+  <!-- ============ SOUS-ÉCRANS (remplis en JS) ============ -->
+  <section id="screen-collection" class="screen"><div class="sub">
+    <header class="subhead"><button class="back" data-back>‹</button><h2>Collection</h2>
+      <div class="subhead-res">🧪 <b id="col-science">0</b></div></header>
+    <div class="sub-body" id="collection-body"></div>
+  </div></section>
+
+  <section id="screen-deck" class="screen"><div class="sub">
+    <header class="subhead"><button class="back" data-back>‹</button><h2>Deck & Capacité</h2></header>
+    <div class="sub-body" id="deck-body"></div>
+  </div></section>
+
+  <section id="screen-shop" class="screen"><div class="sub">
+    <header class="subhead"><button class="back" data-back>‹</button><h2>Boutique</h2>
+      <div class="subhead-res">💠 <b id="shop-coins">0</b></div></header>
+    <div class="sub-body" id="shop-body"></div>
+  </div></section>
+
+  <section id="screen-lab" class="screen"><div class="sub">
+    <header class="subhead"><button class="back" data-back>‹</button><h2>Laboratoire</h2>
+      <div class="subhead-res">💠 <b id="lab-coins">0</b></div></header>
+    <div class="sub-body" id="lab-body"></div>
+  </div></section>
+
+  <section id="screen-ladder" class="screen"><div class="sub">
+    <header class="subhead"><button class="back" data-back>‹</button><h2>Classement</h2></header>
+    <div class="sub-body" id="ladder-body"></div>
+  </div></section>
+
+  <section id="screen-premium" class="screen"><div class="sub">
+    <header class="subhead"><button class="back" data-back>‹</button><h2>Premium & Pass de saison</h2></header>
+    <div class="sub-body" id="premium-body"></div>
+  </div></section>
 
   <!-- ================= CHARGEMENT ================= -->
   <section id="screen-loading" class="screen">
@@ -138,10 +181,24 @@
     </div>
   </div>
 
+  <!-- réglages -->
+  <div id="settings-modal" class="modal">
+    <div class="modal-box">
+      <h2>Réglages</h2>
+      <label class="set-row"><span>Nom du scientifique</span>
+        <input id="set-name" type="text" maxlength="16" class="set-input"></label>
+      <label class="set-row"><span>Sons & musique</span>
+        <input id="set-sound" type="checkbox" class="set-check"></label>
+      <button id="set-reset" class="ghost-btn danger">Réinitialiser la progression</button>
+      <button id="set-close" class="big-btn">Fermer</button>
+    </div>
+  </div>
+
 </div>
 
 <script src="js/vendor/three.min.js"></script>
 <script src="js/data.js"></script>
+<script src="js/meta.js"></script>
 <script src="js/engine.js"></script>
 <script src="js/ai.js"></script>
 <script src="js/render3d.js"></script>
