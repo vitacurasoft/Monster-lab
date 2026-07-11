@@ -2,7 +2,7 @@ name: Deploy static site to GitHub Pages
 
 on:
   push:
-    branches: ["main"]
+    branches: ["main", "claude/monster-lab-design-2srl53"]
   workflow_dispatch:
 
 permissions:
