@@ -1,55 +1,71 @@
-# 🧬 Monster Lab — Prototype jouable
+# 🧬 Monster Lab — Prototype jouable (3D)
 
-Prototype web (HTML5 Canvas, JavaScript vanilla, **zéro dépendance**) du jeu de
-stratégie temps réel décrit dans le cahier des charges *Monster Lab v1.0*.
+Jeu de stratégie temps réel en **3D WebGL**, jouable dans le navigateur, inspiré
+du cahier des charges *Monster Lab v1.0*. Univers de bio-ingénierie : année 2087,
+chaque joueur dirige un laboratoire et déploie des créatures mutantes pour
+détruire le **Cœur Génétique** adverse.
 
-Année 2087 : chaque joueur dirige un laboratoire de bio-ingénierie et déploie
-des créatures mutantes pour détruire le **Cœur Génétique** adverse.
+**100 % autonome, sans build, sans dépendance externe au chargement** (Three.js est
+embarqué localement). Optimisé mobile, format portrait, tactile.
 
 ## ▶️ Jouer
 
-Ouvrez simplement `index.html` dans un navigateur, ou via GitHub Pages une fois
-le dépôt publié. Optimisé pour mobile (format portrait, tactile).
+Ouvrez `index.html` dans un navigateur, ou via GitHub Pages une fois publié.
 
-- **Déployer une créature :** glissez une capsule de votre main vers votre
-  moitié de terrain (ou tapez la carte puis tapez le terrain).
-- **Capacité de labo :** activez le bouton à gauche quand il est chargé, puis
-  ciblez une zone.
+- **Déployer :** glissez une capsule de la main vers votre moitié de terrain
+  (ou tapez la carte puis tapez le terrain).
+- **Capacité de labo :** bouton à gauche une fois chargé, puis ciblez une zone.
+- **Émotes :** bouton 😀 en combat.
 
-## 🧪 Mécaniques implémentées (traçabilité cahier des charges)
+## 🎮 Contenu
 
-| Section du CDC | Implémentation |
-|---|---|
-| Déroulement : matchmaking + écran VS 5 s | Écran de chargement « Mutation en cours… », deck/ligue/créature favorite |
-| Partie de 3 min + prolongation 1 min | Chrono, phases `play`/`overtime`, régénération d'énergie accélérée |
-| Énergie 0→10, plus rapide en dernière minute | `GAME_CONFIG.energyRegen*` |
-| Cœur Génétique + 2 Réacteurs par camp | Bâtiments ; le Cœur reste **passif** tant qu'un Réacteur tient |
-| Deck de 8 capsules, main de 4 | `DECKS`, pioche cyclique |
-| Rôles auto (tank, prédateur, assassin, soutien, volant, distance) | IA de ciblage par rôle (`acquireTarget`) |
-| 8 familles + forces/faiblesses | `FAMILIES`, table de contres `COUNTERS` (+30 % de dégâts) |
-| **Mutations** (Larve → Mante → Reine, etc.) | Jauge d'ADN, `mutate()` avec animation |
-| **Instabilité génétique** (mécanique signature) | Empiler la même famille remplit une jauge → **Mutation Instable** (bonus + comportement erratique) |
-| Capacités de laboratoire | Nuage toxique, impulsion, gel, soin collectif |
-| Zones de déploiement débloquées si un Réacteur tombe | `canDeploy()` |
-| Conditions de victoire (Cœur / Réacteurs / prolongation / PV) | `handleRegulationEnd`, `handleOvertimeEnd` |
-| Matchmaking humain/IA indiscernable | Bot avancé (`BotPlayer`) gère énergie, défense et poussée |
-| Écran de récompenses (trophées, XP, ressources) | Écran de résultats |
+- **Rendu 3D** (Three.js) : arène en perspective, Cœurs cristal, Réacteurs,
+  créatures 3D, effets de mutation/capacité, 7 arènes visuelles.
+- **Combat temps réel** : 3 min + prolongation, énergie, deck de 8 capsules,
+  8 familles + table de contres, rôles IA (tank / prédateur / assassin / soutien /
+  volant / distance), bot adverse.
+- **Mutations par ADN** (Larve → Mante toxique → Reine mutante ; Scorpion →
+  radioactif → Titan toxique ; Molosse → alpha…).
+- **Instabilité génétique** (mécanique signature) : empiler la même famille
+  déclenche une Mutation Instable (bonus + comportement erratique).
+- **Bâtiments déployables** : tourelle, incubateur, générateur, piège, labo avancé.
+- **Capacités de laboratoire** : nuage toxique, impulsion, gel, soin collectif.
+- **Méta-jeu complet** (sauvegardé en local) :
+  - Hub laboratoire, niveaux & XP, ligues **Bronze → Légende**, classement mondial.
+  - **Collection** : déblocage des créatures avec l'ADN.
+  - **Éditeur de deck** + choix de la capacité.
+  - **Boutique** cosmétique (arènes, avatars, émotes) — aucun avantage en combat.
+  - **Salles de laboratoire** améliorables.
+  - **Premium** (5,99 €, simulé) + **pass de saison** à paliers.
+  - Réglages (nom, sons, réinitialisation).
+- **Audio procédural** (WebAudio, 100 % synthétisé, aucun fichier) : effets de
+  combat, UI, victoire/défaite, nappe d'ambiance.
+- **Tutoriel** au premier lancement, **émotes** en combat.
+
+## 🌐 Multijoueur en ligne
+
+Le bouton « Joueur en ligne » est **volontairement grisé** : le multijoueur réseau
+sera développé séparément (Flutter). Le prototype couvre l'intégralité du solo
+contre IA.
 
 ## 🗂️ Structure
 
 ```
-index.html        écrans (menu, chargement, combat, résultats) + aide
-css/style.css     direction artistique « labo haute technologie »
-js/data.js        familles, capsules, decks, mutations, capacités, constantes
-js/engine.js      moteur de combat temps réel (simulation, IA de ciblage, victoire)
-js/ai.js          bot adverse
-js/ui.js          rendu Canvas + conversion écran ↔ terrain
-js/app.js         contrôleur d'écrans, boucle de jeu, entrées joueur
+index.html          écrans (hub, sous-écrans, chargement, combat, résultats)
+css/style.css       direction artistique « labo haute technologie »
+js/vendor/three.min.js   Three.js r128 (embarqué)
+js/data.js          familles, capsules, decks, mutations, capacités, bâtiments
+js/meta.js          progression, collection, ligues, économie (localStorage)
+js/engine.js        moteur de combat temps réel (simulation, IA de ciblage)
+js/ai.js            bot adverse
+js/render3d.js      rendu 3D WebGL + calque 2D (barres de vie, glyphes, dégâts)
+js/sound.js         audio procédural WebAudio
+js/app.js           contrôleur d'écrans, boucle de jeu, entrées, méta-jeu
 ```
 
 ## ⚖️ Statut
 
-Prototype de démonstration du **gameplay** et des mécaniques. Les valeurs
-d'équilibrage sont volontairement lisibles dans `js/data.js` pour être ajustées.
-Ne couvre pas encore : rendu 3D cartoon, réseau/multijoueur réel, progression
-persistante, boutique, audio. Ce sont des phases ultérieures.
+Prototype **solo complet** couvrant gameplay, mutations, bâtiments, méta-jeu,
+progression, audio et rendu 3D. Non couvert (phases ultérieures) : multijoueur
+réseau réel (prévu Flutter), assets 3D artistiques finaux, paiements réels.
+Les valeurs d'équilibrage sont lisibles dans `js/data.js`.
