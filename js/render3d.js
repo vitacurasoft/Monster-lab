@@ -35,9 +35,12 @@ class Render3D {
     const scene = new THREE.Scene();
     this.scene = scene;
 
-    const camera = new THREE.PerspectiveCamera(48, 1, 1, 4000);
-    camera.position.set(0, 610, 340);
-    camera.lookAt(0, 0, 0);
+    // Vue "iso" fixe (GDD DA-01) : caméra orthographique, angle constant.
+    // Azimut 0 pour remplir proprement l'écran portrait (lisibilité mobile).
+    this.viewSize = 660;
+    const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 1, 4000);
+    camera.position.set(0, 600, 470);
+    camera.lookAt(0, -6, 0);
     this.camera = camera;
 
     // Lumières
@@ -437,8 +440,11 @@ class Render3D {
     if (rect.width < 2 || rect.height < 2) return; // écran masqué
     this.cssW = rect.width; this.cssH = rect.height;
     this.renderer.setSize(rect.width, rect.height, false);
-    this.camera.aspect = rect.width / rect.height;
-    this.camera.updateProjectionMatrix();
+    const aspect = rect.width / rect.height;
+    const vh = this.viewSize, vw = vh * aspect;
+    const c = this.camera;
+    c.left = -vw / 2; c.right = vw / 2; c.top = vh / 2; c.bottom = -vh / 2;
+    c.updateProjectionMatrix();
     this.overlay.width = Math.round(rect.width * this.dpr);
     this.overlay.height = Math.round(rect.height * this.dpr);
     this.overlay.style.width = rect.width + 'px';
