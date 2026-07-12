@@ -329,6 +329,7 @@
     renderHand();
     show('screen-match');
     state.renderer.resize();
+    if (window.Sound) { window.Sound.resume(); window.Sound.setMusic(Meta.state.settings.sound); }
     state.running = true;
     state.last = performance.now();
     requestAnimationFrame(loop);
@@ -365,6 +366,7 @@
     const id = state.hand[state.selectedCard];
     const ok = state.game.deploy('player', id, fieldPos.x, fieldPos.y);
     if (ok) {
+      sfx('deploy');
       state.hand.splice(state.selectedCard, 1);
       drawPlayerCard();
       state.selectedCard = -1;
@@ -524,6 +526,9 @@
     state.bot.update(dt);
     g.update(dt);
 
+    // sons émis par la simulation
+    if (g.sounds.length) { for (const s of g.sounds) sfx(s); g.sounds.length = 0; }
+
     state.renderer.render(g, state.dragging || state.selectedCard >= 0 || state.targetingAbility);
     updateHud();
 
@@ -536,7 +541,8 @@
     const g = state.game;
     const win = g.winner === 'player';
     const draw = g.winner === 'draw';
-    sfx(win ? 'win' : draw ? 'deploy' : 'lose');
+    if (window.Sound) window.Sound.setMusic(false);
+    sfx(win ? 'win' : draw ? 'reward' : 'lose');
     show('screen-results');
     const title = $('#result-title');
     title.textContent = draw ? 'ÉGALITÉ' : win ? 'VICTOIRE' : 'DÉFAITE';
@@ -565,6 +571,32 @@
     });
   }
 
+  // ---- Émotes (en combat) -------------------------------------------------
+  let _emoteT;
+  function setupEmotes() {
+    const btn = $('#emote-btn'), pop = $('#emote-pop');
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      // émotes de base + celles achetées
+      const owned = SHOP.emotes.filter(em => Meta.owns(em.id)).map(em => em.icon);
+      const list = ['🧪', '👍', '😈'].concat(owned);
+      pop.innerHTML = '';
+      list.forEach(ic => {
+        const b = el('button', 'emote-item', ic);
+        b.onclick = (ev) => { ev.stopPropagation(); showEmote(ic); pop.classList.remove('open'); };
+        pop.appendChild(b);
+      });
+      pop.classList.toggle('open');
+    });
+    document.addEventListener('click', () => pop.classList.remove('open'));
+  }
+  function showEmote(icon) {
+    const b = $('#emote-bubble');
+    b.textContent = icon; b.classList.add('show');
+    sfx('emote');
+    clearTimeout(_emoteT); _emoteT = setTimeout(() => b.classList.remove('show'), 1400);
+  }
+
   // ---- utils --------------------------------------------------------------
   function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 
@@ -585,12 +617,22 @@
 
     // réglages
     const sm = $('#settings-modal');
-    $('#set-sound').addEventListener('change', (e) => { Meta.state.settings.sound = e.target.checked; Meta.save(); });
+    $('#set-sound').addEventListener('change', (e) => {
+      Meta.state.settings.sound = e.target.checked; Meta.save();
+      if (window.Sound) { if (e.target.checked) window.Sound.resume(); else window.Sound.setMusic(false); }
+    });
     $('#set-name').addEventListener('input', (e) => { Meta.state.name = e.target.value.slice(0, 16) || 'Scientifique'; Meta.save(); buildHub(); });
     $('#set-reset').addEventListener('click', () => { if (confirm('Réinitialiser toute la progression ?')) { Meta.reset(); buildHub(); sm.classList.remove('open'); } });
     $('#set-close').addEventListener('click', () => sm.classList.remove('open'));
 
+    setupEmotes();
     show('screen-hub');
+
+    // tutoriel au premier lancement
+    if (!Meta.state.settings.tutoDone) {
+      $('#help-modal').classList.add('open');
+      Meta.state.settings.tutoDone = true; Meta.save();
+    }
   }
 
   document.addEventListener('DOMContentLoaded', init);

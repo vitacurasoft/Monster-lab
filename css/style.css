@@ -303,3 +303,16 @@ body{
   background:var(--panel2);border:1px solid var(--accent);color:var(--text);padding:10px 18px;
   border-radius:12px;font-size:13px;opacity:0;pointer-events:none;transition:.25s;z-index:300}
 #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* ============ ÉMOTES (combat) ============ */
+#emote-btn{position:absolute;right:8px;top:8px;width:38px;height:38px;border-radius:50%;
+  background:var(--panel2);border:1px solid var(--line);font-size:20px;cursor:pointer;z-index:5}
+#emote-pop{position:absolute;right:8px;top:52px;display:none;flex-direction:column;gap:4px;z-index:6}
+#emote-pop.open{display:flex}
+.emote-item{width:40px;height:40px;border-radius:10px;background:var(--panel2);border:1px solid var(--line);
+  font-size:22px;cursor:pointer}
+.emote-item:hover{border-color:var(--accent)}
+#emote-bubble{position:absolute;left:50%;bottom:20%;transform:translateX(-50%) scale(0.4);
+  font-size:60px;opacity:0;pointer-events:none;transition:.25s;z-index:6;
+  filter:drop-shadow(0 4px 12px rgba(0,0,0,.6))}
+#emote-bubble.show{opacity:1;transform:translateX(-50%) scale(1)}

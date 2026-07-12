@@ -112,6 +112,7 @@ class Game {
     };
     this.reacteursDown = { player: 0, enemy: 0 };
     this.events = [];        // messages pour l'UI
+    this.sounds = [];        // noms de sons à jouer (drainés par l'UI)
 
     for (const team of ['enemy', 'player']) {
       const L = BUILDING_LAYOUT[team];
@@ -179,6 +180,7 @@ class Game {
       u.mutateFlash = 0.6;
     }
     this.effects.push({ kind: 'instability', team, family, t: 1.0 });
+    if (team === 'player') this.sounds.push('instability');
     const fam = FAMILIES[family] ? FAMILIES[family].name : family;
     this.emit(`⚠️ Mutation Instable — ${fam} !`, FAMILIES[family] && FAMILIES[family].color);
   }
@@ -213,6 +215,7 @@ class Game {
       }
     }
     this.effects.push({ kind: 'ability', ability: ab, team, x, y, t: 0.7, radius: ab.radius });
+    if (team === 'player') this.sounds.push('ability');
     return true;
   }
 
@@ -254,6 +257,7 @@ class Game {
           const coeur = this.buildings.find(x => x.team === b.team && x.kind === 'coeur');
           if (coeur) coeur.active = true;
         }
+        this.sounds.push('reacteur');
         this.emit(`Réacteur ${b.team === 'player' ? 'allié' : 'ennemi'} détruit !`, '#ffcf5c');
       } else {
         // Cœur détruit → fin immédiate.
@@ -283,6 +287,7 @@ class Game {
     u.dna = 0;
     u.mutateFlash = 0.8;
     this.effects.push({ kind: 'mutate', x: u.x, y: u.y, t: 0.7 });
+    if (u.team === 'player') this.sounds.push('mutate');
     this.floaters.push({ x: u.x, y: u.y - u.radius - 8, txt: '⇪ ' + next.name, color: '#ffd35c', t: 1.4, vy: -14 });
   }
 
