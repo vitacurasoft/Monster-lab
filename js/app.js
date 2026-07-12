@@ -611,6 +611,10 @@
     $('#help-btn').addEventListener('click', () => $('#help-modal').classList.add('open'));
     $('#help-close').addEventListener('click', () => $('#help-modal').classList.remove('open'));
     $('#settings-btn').addEventListener('click', openSettings);
+    $('#refresh-btn').addEventListener('click', () => {
+      // recharge en forçant une version fraîche (contourne le cache du navigateur)
+      location.href = location.pathname + '?v=' + Date.now();
+    });
 
     // boutons retour des sous-écrans
     document.querySelectorAll('[data-back]').forEach(b => b.addEventListener('click', () => { buildHub(); show('screen-hub'); }));
@@ -635,5 +639,6 @@
     }
   }
 
-  document.addEventListener('DOMContentLoaded', init);
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
 })();

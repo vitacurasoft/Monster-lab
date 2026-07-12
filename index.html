@@ -5,7 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#0b0f1c">
   <title>Monster Lab — Prototype</title>
-  <link rel="stylesheet" href="css/style.css">
+  <script>
+    // Version des ressources : un ?v=… change force le navigateur à tout recharger
+    // (utilisé par le bouton « rafraîchir »). Sinon build par défaut.
+    window.__BUILD = new URLSearchParams(location.search).get('v') || '20260712';
+    (function () {
+      var l = document.createElement('link');
+      l.rel = 'stylesheet';
+      l.href = 'css/style.css?v=' + window.__BUILD;
+      document.head.appendChild(l);
+    })();
+  </script>
 </head>
 <body>
 <div id="app">
@@ -20,6 +30,7 @@
           <div class="tb-lvl"><span id="hub-lvl">Niv. 1</span>
             <div class="xpbar"><div id="hub-xp"></div></div></div>
         </div>
+        <button class="tb-settings" id="refresh-btn" title="Rafraîchir (recharger la dernière version)">🔄</button>
         <button class="tb-settings" id="settings-btn">⚙️</button>
       </header>
 
@@ -202,13 +213,22 @@
 
 </div>
 
-<script src="js/vendor/three.min.js"></script>
-<script src="js/data.js"></script>
-<script src="js/meta.js"></script>
-<script src="js/engine.js"></script>
-<script src="js/ai.js"></script>
-<script src="js/render3d.js"></script>
-<script src="js/sound.js"></script>
-<script src="js/app.js"></script>
+<script>
+  // Chargement séquentiel des scripts avec cache-buster (?v=BUILD) pour que
+  // le bouton « rafraîchir » récupère toujours la dernière version du code.
+  (function () {
+    var v = window.__BUILD;
+    var files = ['js/vendor/three.min.js', 'js/data.js', 'js/meta.js', 'js/engine.js',
+      'js/ai.js', 'js/render3d.js', 'js/sound.js', 'js/app.js'];
+    (function next(i) {
+      if (i >= files.length) return;
+      var s = document.createElement('script');
+      s.src = files[i] + '?v=' + v;
+      s.onload = function () { next(i + 1); };
+      s.onerror = function () { next(i + 1); };
+      document.head.appendChild(s);
+    })(0);
+  })();
+</script>
 </body>
 </html>
