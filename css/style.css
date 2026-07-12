@@ -316,3 +316,14 @@ body{
   font-size:60px;opacity:0;pointer-events:none;transition:.25s;z-index:6;
   filter:drop-shadow(0 4px 12px rgba(0,0,0,.6))}
 #emote-bubble.show{opacity:1;transform:translateX(-50%) scale(1)}
+
+/* ============ DA-01 : UI verre dépoli (frosted glass) ============ */
+.res, .nav-btn, .modal-box, .stats-box, .premium-card, .room-card,
+.ladder-row, .season-tier, .league-pip, .coll-card, .shop-card {
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+}
+.modal-box{ background:linear-gradient(180deg,rgba(21,29,51,.86),rgba(17,26,48,.86)); }
+.res{ background:rgba(27,36,64,.55); }
+.subhead{ background:linear-gradient(180deg,rgba(11,15,28,.92),rgba(11,15,28,.4)); -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px); z-index:2; }
+/* boutons lumineux */
+.nav-btn:hover, .coll-card.mini:hover{ box-shadow:0 0 16px rgba(0,229,208,.25); }

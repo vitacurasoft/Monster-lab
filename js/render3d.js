@@ -59,6 +59,10 @@ class Render3D {
 
     // Sol + grille
     this.buildGround();
+    // Décor de laboratoire (réacteurs d'angle + cuves d'ADN)
+    this.buildDecor();
+    this.explosions = [];
+    this.ruined = new Set();
 
     // Ligne médiane
     const midGeo = new THREE.PlaneGeometry(360, 4);
@@ -90,6 +94,29 @@ class Render3D {
       proj: new THREE.SphereGeometry(3.2, 8, 8),
       ringFx: new THREE.TorusGeometry(1, 0.5, 6, 28),
       struct: new THREE.BoxGeometry(1, 1, 1),
+      // silhouettes par famille (GDD DA-01 : reconnaître un monstre à sa forme)
+      box: new THREE.BoxGeometry(1, 1, 1),
+      cone: new THREE.ConeGeometry(0.9, 1.7, 5),
+      tetra: new THREE.TetrahedronGeometry(1.15),
+      octa: new THREE.OctahedronGeometry(1.05),
+      cyl: new THREE.CylinderGeometry(0.85, 0.85, 1.2, 8),
+    };
+    // hélice d'ADN pour l'effet de mutation (GDD : spirale d'ADN lumineuse)
+    (function (self) {
+      const pts = [];
+      for (let i = 0; i <= 40; i++) { const a = i / 40 * Math.PI * 4; pts.push(new THREE.Vector3(Math.cos(a) * 4, i / 40 * 40, Math.sin(a) * 4)); }
+      self.geo.helix = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 40, 1.2, 5, false);
+    })(this);
+    // forme + échelle (x,y,z) par famille → silhouettes distinctes
+    this.shapes = {
+      insecte:   { g: 'tetra', s: [1.0, 1.0, 1.0] },
+      mammifere: { g: 'box',   s: [1.1, 0.9, 1.35] },
+      reptile:   { g: 'box',   s: [0.7, 0.55, 1.7] },
+      robot:     { g: 'box',   s: [1.05, 1.15, 1.05] },
+      parasite:  { g: 'octa',  s: [1.25, 0.55, 1.25] },
+      alien:     { g: 'octa',  s: [0.85, 1.5, 0.85] },
+      marin:     { g: 'unit',  s: [1.15, 0.95, 1.15] },
+      plante:    { g: 'cone',  s: [1.0, 1.25, 1.0] },
     };
 
     this._plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
@@ -126,6 +153,58 @@ class Render3D {
     this.fieldFrame = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x3a4a8a }));
     this.fieldFrame.position.y = 0.5;
     this.world.add(this.fieldFrame);
+  }
+
+  // Décor de labo autour du terrain (hors zone de jeu → lisibilité préservée)
+  buildDecor() {
+    this.decor = new THREE.Group();
+    // 4 réacteurs énergétiques aux angles
+    const rGeo = new THREE.CylinderGeometry(14, 20, 64, 8);
+    const capGeo = new THREE.SphereGeometry(11, 12, 12);
+    [[-210, -360], [210, -360], [-210, 360], [210, 360]].forEach(([x, z]) => {
+      const body = new THREE.Mesh(rGeo, new THREE.MeshStandardMaterial({ color: 0x1b2236, emissive: 0x2fa4e7, emissiveIntensity: 0.45, roughness: 0.4, metalness: 0.7, flatShading: true }));
+      body.position.set(x, 32, z); this.decor.add(body);
+      const cap = new THREE.Mesh(capGeo, new THREE.MeshBasicMaterial({ color: 0x00e5d0 }));
+      cap.position.set(x, 68, z); this.decor.add(cap);
+    });
+    // cuves d'ADN le long des bords (vert ADN, translucides)
+    const tubeGeo = new THREE.CylinderGeometry(9, 9, 88, 12, 1, true);
+    for (const z of [-210, 0, 210]) {
+      for (const x of [-205, 205]) {
+        const tube = new THREE.Mesh(tubeGeo, new THREE.MeshStandardMaterial({ color: 0x7CFC00, emissive: 0x5fbf00, emissiveIntensity: 0.5, transparent: true, opacity: 0.45, roughness: 0.2, side: THREE.DoubleSide }));
+        tube.position.set(x, 46, z); this.decor.add(tube);
+        const glow = new THREE.Mesh(new THREE.SphereGeometry(5, 8, 8), new THREE.MeshBasicMaterial({ color: 0xaaff66 }));
+        glow.position.set(x, 46, z); this.decor.add(glow);
+      }
+    }
+    this.world.add(this.decor);
+  }
+
+  // Un bâtiment détruit laisse des ruines (GDD : jamais de disparition instantanée)
+  makeRuin(group) {
+    group.scale.set(1, 0.35, 1);
+    group.rotation.z = 0.14;
+    group.traverse(o => {
+      if (o.material) {
+        if (o.material.color) o.material.color.setHex(0x2a2f3a);
+        if ('emissiveIntensity' in o.material) o.material.emissiveIntensity = 0;
+      }
+    });
+    // fumée persistante
+    const smoke = new THREE.Mesh(new THREE.SphereGeometry(16, 8, 8),
+      new THREE.MeshBasicMaterial({ color: 0x3a3f4a, transparent: true, opacity: 0.35 }));
+    smoke.position.y = 20; group.add(smoke);
+  }
+
+  spawnExplosion(pos) {
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(1, 2.4, 6, 24),
+      new THREE.MeshBasicMaterial({ color: 0xff8a3c, transparent: true, opacity: 1 }));
+    ring.rotation.x = -Math.PI / 2; ring.position.set(pos.x, 4, pos.z);
+    const blast = new THREE.Mesh(new THREE.SphereGeometry(14, 10, 10),
+      new THREE.MeshBasicMaterial({ color: 0xffd35c, transparent: true, opacity: 0.9 }));
+    blast.position.set(pos.x, 16, pos.z);
+    this.world.add(ring); this.world.add(blast);
+    this.explosions.push({ ring, blast, t: 0.7 });
   }
 
   setArena(id) {
@@ -191,11 +270,14 @@ class Render3D {
     const col = new THREE.Color(fam.color);
     const teamColor = u.team === 'player' ? 0x4cc9f0 : 0xf04c7a;
     const isStruct = !!u.def.structure;
+    const shape = this.shapes[u.family] || { g: 'unit', s: [1, 1, 1] };
+    const geo = isStruct ? this.geo.struct : (this.geo[shape.g] || this.geo.unit);
+    const flat = isStruct || ['tetra', 'octa', 'cone', 'box'].includes(shape.g);
     const group = new THREE.Group();
     const body = new THREE.Mesh(
-      isStruct ? this.geo.struct : this.geo.unit,
+      geo,
       new THREE.MeshStandardMaterial({ color: col, emissive: col.clone().multiplyScalar(0.3),
-        roughness: isStruct ? 0.5 : 0.45, metalness: isStruct ? 0.5 : 0.2, flatShading: isStruct })
+        roughness: isStruct ? 0.5 : 0.5, metalness: isStruct ? 0.5 : 0.25, flatShading: flat })
     );
     group.add(body);
     const ring = new THREE.Mesh(
@@ -205,7 +287,7 @@ class Render3D {
     ring.rotation.x = -Math.PI / 2;
     group.add(ring);
     this.world.add(group);
-    m = { group, body, ring, fam, isStruct };
+    m = { group, body, ring, fam, isStruct, shape: shape.s };
     this.unitMeshes.set(u.id, m);
     return m;
   }
@@ -225,12 +307,21 @@ class Render3D {
         m.ring.position.y = 1.5;
         m.ring.scale.setScalar(r * 1.5);
       } else {
-        const bob = Math.sin(this.time * 6 + u.id) * 1.2;
+        // animations exagérées par rôle/famille (GDD DA-01)
+        const t = this.time * 1000 + u.id * 137;
+        let bob = 0, lean = 0, spin = 0;
+        if (u.role === 'tank') { bob = Math.abs(Math.sin(this.time * 3 + u.id)) * 2.2; lean = Math.sin(this.time * 3 + u.id) * 0.12; }
+        else if (u.family === 'insecte' || u.role === 'assassin') { bob = Math.abs(Math.sin(this.time * 9 + u.id)) * 4.5; } // saut vif
+        else if (u.family === 'parasite') { bob = Math.sin(this.time * 5 + u.id) * 0.6; lean = Math.sin(this.time * 7 + u.id) * 0.25; } // reptation
+        else if (u.family === 'robot') { spin = this.time * 2.2; } // pivot mécanique
+        else bob = Math.sin(this.time * 6 + u.id) * 1.3;
+        const s = m.shape;
         m.group.position.set(w.x, r + bob, w.z);
-        m.body.scale.setScalar(r);
+        m.body.scale.set(r * s[0], r * s[1], r * s[2]);
         m.body.position.y = 0;
-        m.ring.position.y = -r + 1.5;
-        m.ring.scale.set(r * 1.25, r * 1.25, r * 1.25);
+        m.body.rotation.set(lean, spin, 0);
+        m.ring.position.y = -r * s[1] + 1.5;
+        m.ring.scale.setScalar(r * 1.3);
       }
 
       // couleur / états
@@ -258,7 +349,10 @@ class Render3D {
     for (const b of game.buildings) {
       const group = this.buildingMeshes.get(b.id);
       if (!group) continue;
-      if (!b.alive) { group.visible = false; continue; }
+      if (!b.alive) {
+        if (!this.ruined.has(b.id)) { this.makeRuin(group); this.spawnExplosion(group.position); this.ruined.add(b.id); }
+        continue; // la ruine reste visible
+      }
       group.visible = true;
       const ud = group.userData;
       if (ud.kind === 'coeur') {
@@ -292,31 +386,49 @@ class Render3D {
     for (; i < this.projPool.length; i++) this.projPool[i].visible = false;
   }
 
+  abilityColor(ab) {
+    const id = ab && ab.id;
+    if (id === 'nuageToxique' || id === 'soinCollectif') return 0x7CFC00; // acide/poison, soin : vert
+    if (id === 'impulsion') return 0x00e5ff;  // électricité : cyan
+    if (id === 'gel') return 0x9fd8ff;         // gel : bleu clair
+    return 0xff8a3c;                           // explosion (piège) : orange
+  }
+
   updateEffects(game) {
-    // rings de mutation / capacités : recréés à la volée
-    for (const m of this.effectMeshes) { this.world.remove(m.mesh); m.mesh.material.dispose(); }
+    // effets recréés à la volée chaque frame
+    for (const m of this.effectMeshes) { this.world.remove(m.mesh); m.mesh.material.dispose(); if (m.geoDispose) m.mesh.geometry.dispose(); }
     this.effectMeshes = [];
     for (const e of game.effects) {
       if (e.kind === 'mutate') {
+        // GDD : spirale d'ADN lumineuse, vert + violet, ~1 s
         const p = (0.7 - e.t) / 0.7;
         const w = toWorld(e.x, e.y);
-        const mesh = new THREE.Mesh(this.geo.ringFx,
-          new THREE.MeshBasicMaterial({ color: 0xffd35c, transparent: true, opacity: 1 - p }));
-        mesh.rotation.x = -Math.PI / 2;
-        mesh.position.set(w.x, 4, w.z);
-        mesh.scale.setScalar(6 + p * 40);
-        this.world.add(mesh);
-        this.effectMeshes.push({ mesh });
+        const sc = 0.55 + p * 0.7;
+        [[0x7CFC00, 0], [0xB24CFF, Math.PI]].forEach(([col, phase]) => {
+          const mesh = new THREE.Mesh(this.geo.helix,
+            new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.9 * (1 - p * 0.5) }));
+          mesh.position.set(w.x, 2, w.z);
+          mesh.scale.set(sc, 0.7 + p * 0.6, sc);
+          mesh.rotation.y = this.time * 7 + phase;
+          this.world.add(mesh);
+          this.effectMeshes.push({ mesh });
+        });
+        // halo turquoise au sol
+        const disc = new THREE.Mesh(this.geo.ringFx,
+          new THREE.MeshBasicMaterial({ color: 0x2fe0c0, transparent: true, opacity: (1 - p) * 0.8 }));
+        disc.rotation.x = -Math.PI / 2; disc.position.set(w.x, 3, w.z); disc.scale.setScalar(6 + p * 34);
+        this.world.add(disc); this.effectMeshes.push({ mesh: disc });
       } else if (e.kind === 'ability') {
         const a = e.t / 0.7;
         const w = toWorld(e.x, e.y);
+        const col = this.abilityColor(e.ability);
         const mesh = new THREE.Mesh(
           new THREE.CircleGeometry(e.radius, 28),
-          new THREE.MeshBasicMaterial({ color: 0x00e5d0, transparent: true, opacity: 0.22 * a, side: THREE.DoubleSide }));
+          new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.24 * a, side: THREE.DoubleSide }));
         mesh.rotation.x = -Math.PI / 2;
         mesh.position.set(w.x, 3, w.z);
         this.world.add(mesh);
-        this.effectMeshes.push({ mesh });
+        this.effectMeshes.push({ mesh, geoDispose: true });
       }
     }
   }
@@ -420,8 +532,22 @@ class Render3D {
     this.updateBuildings(game);
     this.updateProjectiles(game);
     this.updateEffects(game);
+    this.updateExplosions();
     this.renderer.render(this.scene, this.camera);
     this.drawOverlay(game);
+  }
+
+  updateExplosions() {
+    for (const ex of this.explosions) {
+      ex.t -= 1 / 60;
+      const p = 1 - ex.t / 0.7; // 0..1
+      ex.ring.scale.setScalar(3 + p * 34);
+      ex.ring.material.opacity = Math.max(0, 1 - p);
+      ex.blast.scale.setScalar(1 + p * 2.2);
+      ex.blast.material.opacity = Math.max(0, 0.9 - p);
+      if (ex.t <= 0) { this.world.remove(ex.ring); this.world.remove(ex.blast); ex.dead = true; }
+    }
+    this.explosions = this.explosions.filter(e => !e.dead);
   }
 
   screenToField(clientX, clientY) {
@@ -461,6 +587,9 @@ class Render3D {
     this.projPool = [];
     for (const m of this.effectMeshes) this.world.remove(m.mesh);
     this.effectMeshes = [];
+    for (const ex of this.explosions) { this.world.remove(ex.ring); this.world.remove(ex.blast); }
+    this.explosions = [];
+    this.ruined = new Set();
     this.buildingsBuilt = false;
   }
 }
